@@ -92,11 +92,13 @@ case "${SCHEMA_DRAFT}" in
   *)                     AJV_SPEC="draft7" ;;
 esac
 
-# Build ajv command
+# Build ajv command — -c ajv-formats loads standard format validators
+# (date-time, uri, email, etc.) that schemas reference
 AJV_ARGS=(
   validate
   -s "${SCHEMA_PATH}"
   -d "${INPUT_FILE}"
+  -c ajv-formats
   "--spec=${AJV_SPEC}"
   --all-errors
 )
