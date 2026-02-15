@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Write failure outputs and exit — ensures GITHUB_OUTPUT is populated
+# even when validation cannot proceed (missing file, bad version, etc.)
+fail_with_output() {
+  local msg="$1"
+  local fmt="${FORMAT:-unknown}"
+  local ver="${VERSION:-unknown}"
+  echo "Error: ${msg}" >&2
+  if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    {
+      echo "valid=false"
+      echo "format=${fmt}"
+      echo "spec-version=${ver}"
+      echo "error-count=1"
+    } >> "${GITHUB_OUTPUT}"
+  fi
+  exit 1
+}
+
 # Resolve action path for both GitHub Actions and local execution
 if [[ -n "${GITHUB_ACTION_PATH:-}" ]]; then
   ACTION_PATH="${GITHUB_ACTION_PATH}"
@@ -10,14 +28,12 @@ fi
 
 # Verify input file exists
 if [[ ! -f "${INPUT_FILE}" ]]; then
-  echo "Error: Input file not found: ${INPUT_FILE}" >&2
-  exit 1
+  fail_with_output "Input file not found: ${INPUT_FILE}"
 fi
 
 # Verify file is valid JSON
 if ! jq empty "${INPUT_FILE}" 2>/dev/null; then
-  echo "Error: Input file is not valid JSON: ${INPUT_FILE}" >&2
-  exit 1
+  fail_with_output "Input file is not valid JSON: ${INPUT_FILE}"
 fi
 
 # Auto-detect format if needed
@@ -27,8 +43,7 @@ if [[ "${INPUT_FORMAT}" == "auto" ]]; then
   elif jq -e '.spdxVersion' "${INPUT_FILE}" >/dev/null 2>&1; then
     FORMAT="spdx"
   else
-    echo "Error: Unable to detect SBOM format. Specify format explicitly." >&2
-    exit 1
+    fail_with_output "Unable to detect SBOM format. Specify format explicitly."
   fi
 else
   FORMAT="${INPUT_FORMAT}"
@@ -39,19 +54,16 @@ if [[ "${INPUT_VERSION}" == "auto" ]]; then
   if [[ "${FORMAT}" == "cyclonedx" ]]; then
     VERSION="$(jq -r '.specVersion // empty' "${INPUT_FILE}")"
     if [[ -z "${VERSION}" ]]; then
-      echo "Error: Unable to detect CycloneDX specVersion" >&2
-      exit 1
+      fail_with_output "Unable to detect CycloneDX specVersion"
     fi
   elif [[ "${FORMAT}" == "spdx" ]]; then
     SPDX_VERSION="$(jq -r '.spdxVersion // empty' "${INPUT_FILE}")"
     if [[ -z "${SPDX_VERSION}" ]]; then
-      echo "Error: Unable to detect SPDX version" >&2
-      exit 1
+      fail_with_output "Unable to detect SPDX version"
     fi
     VERSION="${SPDX_VERSION#SPDX-}"
   else
-    echo "Error: Unsupported format: ${FORMAT}" >&2
-    exit 1
+    fail_with_output "Unsupported format: ${FORMAT}"
   fi
 else
   VERSION="${INPUT_VERSION}"
@@ -63,31 +75,44 @@ if [[ "${FORMAT}" == "cyclonedx" ]]; then
 elif [[ "${FORMAT}" == "spdx" ]]; then
   SCHEMA_PATH="${ACTION_PATH}/schemas/spdx/spdx-${VERSION}.schema.json"
 else
-  echo "Error: Unsupported format: ${FORMAT}" >&2
-  exit 1
+  fail_with_output "Unsupported format: ${FORMAT}"
 fi
 
 # Verify schema file exists
 if [[ ! -f "${SCHEMA_PATH}" ]]; then
-  echo "Error: Schema file not found: ${SCHEMA_PATH}" >&2
-  echo "Format: ${FORMAT}, Version: ${VERSION}" >&2
-  exit 1
+  fail_with_output "Schema file not found for ${FORMAT} ${VERSION}"
 fi
 
-# Build ajv command
+# Detect JSON Schema draft from the schema's $schema field
+SCHEMA_DRAFT=$(jq -r '.["$schema"] // empty' "${SCHEMA_PATH}")
+case "${SCHEMA_DRAFT}" in
+  *draft-07*|*draft-7*)  AJV_SPEC="draft7" ;;
+  *draft/2019-09*)       AJV_SPEC="draft2019" ;;
+  *draft/2020-12*)       AJV_SPEC="draft2020" ;;
+  *)                     AJV_SPEC="draft7" ;;
+esac
+
+# Build ajv command — -c ajv-formats loads standard format validators
+# (date-time, uri, email, etc.) that schemas reference
 AJV_ARGS=(
   validate
   -s "${SCHEMA_PATH}"
   -d "${INPUT_FILE}"
-  --spec=draft2020
+  -c ajv-formats
+  "--spec=${AJV_SPEC}"
   --all-errors
+  --strict=false
 )
 
-# Apply strict mode setting
-if [[ "${INPUT_STRICT}" == "true" ]]; then
-  AJV_ARGS+=(--strict=true)
-else
-  AJV_ARGS+=(--strict=false)
+# CycloneDX schemas $ref external schema files for license IDs,
+# JSON signatures, and cryptography definitions
+if [[ "${FORMAT}" == "cyclonedx" ]]; then
+  for ref_schema in spdx.schema.json jsf-0.82.schema.json cryptography-defs.schema.json; do
+    ref_path="${ACTION_PATH}/schemas/cyclonedx/${ref_schema}"
+    if [[ -f "${ref_path}" ]]; then
+      AJV_ARGS+=(-r "${ref_path}")
+    fi
+  done
 fi
 
 # Run validation and capture output
