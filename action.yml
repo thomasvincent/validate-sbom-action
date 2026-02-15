@@ -17,10 +17,6 @@ inputs:
     description: 'Spec version (e.g. 1.5, 2.3) or auto (detect from file)'
     required: false
     default: 'auto'
-  strict:
-    description: 'Fail on additional properties not in schema'
-    required: false
-    default: 'true'
 
 outputs:
   valid:
@@ -41,7 +37,7 @@ runs:
   steps:
     - name: Install ajv-cli
       shell: bash
-      run: npm install --no-save ajv-cli ajv-formats 2>/dev/null
+      run: npm install --no-save --loglevel=error ajv-cli ajv-formats
     - name: Validate SBOM
       id: validate
       shell: bash
@@ -49,5 +45,4 @@ runs:
         INPUT_FILE: ${{ inputs.input-file }}
         INPUT_FORMAT: ${{ inputs.format }}
         INPUT_VERSION: ${{ inputs.version }}
-        INPUT_STRICT: ${{ inputs.strict }}
       run: bash "${{ github.action_path }}/scripts/validate.sh"
