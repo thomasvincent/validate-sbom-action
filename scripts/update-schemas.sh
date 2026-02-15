@@ -47,6 +47,11 @@ download_and_verify \
     "https://raw.githubusercontent.com/CycloneDX/specification/master/schema/bom-1.7.schema.json" \
     "${CYCLONEDX_DIR}/bom-1.7.schema.json"
 
+# CycloneDX schemas $ref this for SPDX license ID validation
+download_and_verify \
+    "https://raw.githubusercontent.com/CycloneDX/specification/1.5/schema/spdx.schema.json" \
+    "${CYCLONEDX_DIR}/spdx.schema.json"
+
 echo ""
 echo "=== Downloading SPDX schemas ==="
 download_and_verify \

@@ -101,13 +101,16 @@ AJV_ARGS=(
   -c ajv-formats
   "--spec=${AJV_SPEC}"
   --all-errors
+  --strict=false
 )
 
-# ajv --strict controls schema *compilation* checks (custom keywords, formats),
-# not data validation. Real schemas use extensions like meta:enum and
-# iri-reference that strict rejects. Always disable for compatibility.
-# The INPUT_STRICT flag is reserved for future data-level strictness.
-AJV_ARGS+=(--strict=false)
+# CycloneDX schemas $ref spdx.schema.json for license ID validation
+if [[ "${FORMAT}" == "cyclonedx" ]]; then
+  SPDX_REF="${ACTION_PATH}/schemas/cyclonedx/spdx.schema.json"
+  if [[ -f "${SPDX_REF}" ]]; then
+    AJV_ARGS+=(-r "${SPDX_REF}")
+  fi
+fi
 
 # Run validation and capture output
 VALIDATION_OUTPUT=$(npx ajv-cli "${AJV_ARGS[@]}" 2>&1) || VALIDATION_EXIT_CODE=$?
