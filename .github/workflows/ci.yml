@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - file: test/valid-cyclonedx-1.5.json
+            expect: valid
+          - file: test/valid-cyclonedx-1.6.json
+            expect: valid
+          - file: test/valid-spdx-2.3.json
+            expect: valid
+          - file: test/invalid-missing-components.json
+            expect: invalid
+          - file: test/invalid-bad-version.json
+            expect: invalid
+          - file: test/invalid-spdx-no-name.json
+            expect: invalid
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: ./
+        id: validate
+        with:
+          input-file: ${{ matrix.file }}
+        continue-on-error: true
+      - name: Assert expected outcome
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ matrix.expect }}" == "valid" ]]; then
+            if [[ "${{ steps.validate.outputs.valid }}" != "true" ]]; then
+              echo "::error::Expected valid but got: ${{ steps.validate.outputs.valid }}"
+              exit 1
+            fi
+          else
+            if [[ "${{ steps.validate.outputs.valid }}" != "false" ]]; then
+              echo "::error::Expected invalid but got: ${{ steps.validate.outputs.valid }}"
+              exit 1
+            fi
+          fi
+          echo "Assertion passed: ${{ matrix.file }} is ${{ matrix.expect }}"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: ShellCheck
+        run: shellcheck scripts/*.sh
+      - name: Bash syntax check
+        run: bash -n scripts/validate.sh && bash -n scripts/update-schemas.sh

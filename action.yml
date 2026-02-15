@@ -1,0 +1,53 @@
+name: 'Validate SBOM'
+description: 'Validate SBOM files against official CycloneDX and SPDX JSON schemas'
+author: 'Thomas Vincent'
+branding:
+  icon: 'shield'
+  color: 'green'
+
+inputs:
+  input-file:
+    description: 'Path to SBOM file to validate'
+    required: true
+  format:
+    description: 'SBOM format: cyclonedx, spdx, or auto (detect from file)'
+    required: false
+    default: 'auto'
+  version:
+    description: 'Spec version (e.g. 1.5, 2.3) or auto (detect from file)'
+    required: false
+    default: 'auto'
+  strict:
+    description: 'Fail on additional properties not in schema'
+    required: false
+    default: 'true'
+
+outputs:
+  valid:
+    description: 'Whether the SBOM is valid (true/false)'
+    value: ${{ steps.validate.outputs.valid }}
+  format:
+    description: 'Detected SBOM format (cyclonedx or spdx)'
+    value: ${{ steps.validate.outputs.format }}
+  spec-version:
+    description: 'Detected spec version'
+    value: ${{ steps.validate.outputs.spec-version }}
+  error-count:
+    description: 'Number of validation errors'
+    value: ${{ steps.validate.outputs.error-count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install ajv-cli
+      shell: bash
+      run: npm install --no-save ajv-cli ajv-formats 2>/dev/null
+    - name: Validate SBOM
+      id: validate
+      shell: bash
+      env:
+        INPUT_FILE: ${{ inputs.input-file }}
+        INPUT_FORMAT: ${{ inputs.format }}
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_STRICT: ${{ inputs.strict }}
+      run: bash "${{ github.action_path }}/scripts/validate.sh"
