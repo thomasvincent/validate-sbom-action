@@ -103,12 +103,11 @@ AJV_ARGS=(
   --all-errors
 )
 
-# Apply strict mode setting
-if [[ "${INPUT_STRICT}" == "true" ]]; then
-  AJV_ARGS+=(--strict=true)
-else
-  AJV_ARGS+=(--strict=false)
-fi
+# ajv --strict controls schema *compilation* checks (custom keywords, formats),
+# not data validation. Real schemas use extensions like meta:enum and
+# iri-reference that strict rejects. Always disable for compatibility.
+# The INPUT_STRICT flag is reserved for future data-level strictness.
+AJV_ARGS+=(--strict=false)
 
 # Run validation and capture output
 VALIDATION_OUTPUT=$(npx ajv-cli "${AJV_ARGS[@]}" 2>&1) || VALIDATION_EXIT_CODE=$?
