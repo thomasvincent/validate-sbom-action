@@ -104,12 +104,15 @@ AJV_ARGS=(
   --strict=false
 )
 
-# CycloneDX schemas $ref spdx.schema.json for license ID validation
+# CycloneDX schemas $ref external schema files for license IDs,
+# JSON signatures, and cryptography definitions
 if [[ "${FORMAT}" == "cyclonedx" ]]; then
-  SPDX_REF="${ACTION_PATH}/schemas/cyclonedx/spdx.schema.json"
-  if [[ -f "${SPDX_REF}" ]]; then
-    AJV_ARGS+=(-r "${SPDX_REF}")
-  fi
+  for ref_schema in spdx.schema.json jsf-0.82.schema.json cryptography-defs.schema.json; do
+    ref_path="${ACTION_PATH}/schemas/cyclonedx/${ref_schema}"
+    if [[ -f "${ref_path}" ]]; then
+      AJV_ARGS+=(-r "${ref_path}")
+    fi
+  done
 fi
 
 # Run validation and capture output

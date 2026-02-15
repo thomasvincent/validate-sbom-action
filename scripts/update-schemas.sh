@@ -47,10 +47,18 @@ download_and_verify \
     "https://raw.githubusercontent.com/CycloneDX/specification/master/schema/bom-1.7.schema.json" \
     "${CYCLONEDX_DIR}/bom-1.7.schema.json"
 
-# CycloneDX schemas $ref this for SPDX license ID validation
+# Referenced schemas used by CycloneDX via $ref
 download_and_verify \
     "https://raw.githubusercontent.com/CycloneDX/specification/1.5/schema/spdx.schema.json" \
     "${CYCLONEDX_DIR}/spdx.schema.json"
+
+download_and_verify \
+    "https://raw.githubusercontent.com/CycloneDX/specification/1.5/schema/jsf-0.82.schema.json" \
+    "${CYCLONEDX_DIR}/jsf-0.82.schema.json"
+
+download_and_verify \
+    "https://raw.githubusercontent.com/CycloneDX/specification/master/schema/cryptography-defs.schema.json" \
+    "${CYCLONEDX_DIR}/cryptography-defs.schema.json"
 
 echo ""
 echo "=== Downloading SPDX schemas ==="
