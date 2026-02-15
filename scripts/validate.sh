@@ -83,12 +83,21 @@ if [[ ! -f "${SCHEMA_PATH}" ]]; then
   fail_with_output "Schema file not found for ${FORMAT} ${VERSION}"
 fi
 
+# Detect JSON Schema draft from the schema's $schema field
+SCHEMA_DRAFT=$(jq -r '.["$schema"] // empty' "${SCHEMA_PATH}")
+case "${SCHEMA_DRAFT}" in
+  *draft-07*|*draft-7*)  AJV_SPEC="draft7" ;;
+  *draft/2019-09*)       AJV_SPEC="draft2019" ;;
+  *draft/2020-12*)       AJV_SPEC="draft2020" ;;
+  *)                     AJV_SPEC="draft7" ;;
+esac
+
 # Build ajv command
 AJV_ARGS=(
   validate
   -s "${SCHEMA_PATH}"
   -d "${INPUT_FILE}"
-  --spec=draft2020
+  "--spec=${AJV_SPEC}"
   --all-errors
 )
 
