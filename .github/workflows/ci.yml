@@ -9,20 +9,31 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
+          - file: test/valid-cyclonedx-1.4.json
+            expect: valid
           - file: test/valid-cyclonedx-1.5.json
             expect: valid
           - file: test/valid-cyclonedx-1.6.json
             expect: valid
+          - file: test/valid-cyclonedx-1.7.json
+            expect: valid
+          - file: test/valid-spdx-2.2.json
+            expect: valid
           - file: test/valid-spdx-2.3.json
             expect: valid
-          - file: test/invalid-missing-components.json
+          - file: test/invalid-missing-required-fields.json
             expect: invalid
           - file: test/invalid-bad-version.json
             expect: invalid
@@ -53,6 +64,7 @@ jobs:
           echo "Assertion passed: ${{ matrix.file }} is ${{ matrix.expect }}"
 
   lint:
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
